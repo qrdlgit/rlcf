@@ -13,10 +13,16 @@ def generate_prediction(prompt_file, model_path, tokenizer_path):
     # Tokenize the prompt
     inputs = tokenizer.encode(prompt, return_tensors="pt")
 
-    # Generate the prediction
+    # Get the model's output logits
     with torch.no_grad():
-        outputs = model.generate(inputs)
-        predicted_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        outputs = model(inputs)
+        logits = outputs.logits
+
+    # Get the most probable tokens
+    predicted_tokens = torch.argmax(logits, dim=-1)
+
+    # Decode the tokens into text
+    predicted_text = tokenizer.decode(predicted_tokens[0], skip_special_tokens=True)
 
     return predicted_text
 
