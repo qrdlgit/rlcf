@@ -1,35 +1,28 @@
+import sys
 import torch
-from transformers import AutoTokenizer, AutoModelForMaskedLM
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-def generate_prediction(prompt_file, model_path, tokenizer_path):
+def generate_text(prompt_filename, model, tokenizer):
+    with open(prompt_filename, "r") as f:
+        prompt = f.read().strip()
+
+    input_ids = tokenizer.encode(prompt, return_tensors="pt")
+    output_ids = model.generate(input_ids)
+    generated_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+    return generated_text
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python generate_text.py <prompt_filename>")
+        sys.exit(1)
+
+    prompt_filename = sys.argv[1]
+
     # Load the fine-tuned model and tokenizer
-    model = AutoModelForMaskedLM.from_pretrained(model_path)
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    model_path = "./codebert_finetuned"
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
 
-    # Read the prompt file
-    with open(prompt_file, "r") as f:
-        prompt = f.read()
-
-    # Tokenize the prompt
-    inputs = tokenizer.encode(prompt, return_tensors="pt")
-
-    # Get the model's output logits
-    with torch.no_grad():
-        outputs = model(inputs)
-        logits = outputs.logits
-
-    # Get the most probable tokens
-    predicted_tokens = torch.argmax(logits, dim=-1)
-
-    # Decode the tokens into text
-    predicted_text = tokenizer.decode(predicted_tokens[0], skip_special_tokens=True)
-
-    return predicted_text
-
-# Test the model with a prompt file
-prompt_file = "prompt.txt"
-model_path = "./codebert_finetuned"
-tokenizer_path = "./codebert_finetuned"
-
-predicted_text = generate_prediction(prompt_file, model_path, tokenizer_path)
-print(predicted_text)
+    generated_text = generate_text(prompt_filename, model, tokenizer)
+    print("Generated text:\n", generated_text)
