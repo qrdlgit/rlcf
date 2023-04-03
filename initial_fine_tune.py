@@ -109,7 +109,6 @@ trainer = CustomTrainer(
     data_collator=data_collator,
     train_dataset=train_dataset,
     eval_dataset=eval_dataset,
-    tokenizer=tokenizer,
 )
 trainer.train()
 
