@@ -3,18 +3,21 @@ from torch.nn import CrossEntropyLoss
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from transformers import TextDataset, DataCollatorForSeq2Seq
 from transformers import Trainer, TrainingArguments
+from transformers import AutoModelForMaskedLM
+
+from transformers import DataCollatorForLanguageModeling
 
 # Load the pre-trained model
 model_name = "microsoft/codebert-base"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+model = AutoModelForMaskedLM.from_pretrained(model_name)
 
-# Create a custom loss function
-def custom_loss(outputs, labels, tokenizer, loss_fct=CrossEntropyLoss(), focus_weight=5.0):
+def custom_mlm_loss(outputs, labels, tokenizer, loss_fct=CrossEntropyLoss(), focus_weight=5.0):
     find_code_token = tokenizer.encode("find code:", add_special_tokens=False)
     replace_code_token = tokenizer.encode("replace code:", add_special_tokens=False)
     mask = torch.zeros_like(labels)
 
+    # Create a mask for the specific tokens
     for i in range(labels.size(0)):
         for j in range(labels.size(1) - len(find_code_token)):
             if torch.equal(labels[i, j : j + len(find_code_token)], torch.tensor(find_code_token)):
@@ -22,23 +25,26 @@ def custom_loss(outputs, labels, tokenizer, loss_fct=CrossEntropyLoss(), focus_w
             if torch.equal(labels[i, j : j + len(replace_code_token)], torch.tensor(replace_code_token)):
                 mask[i, j : j + len(replace_code_token)] = 1
 
+    # MLM loss
     lprobs = torch.nn.functional.log_softmax(outputs.view(-1, outputs.size(-1)), dim=-1)
     active_loss = mask.view(-1) == 1
     inactive_loss = mask.view(-1) == 0
-
+    masked_labels = labels.view(-1)
+    
     # Compute loss for the specific tokens
     active_lprobs = lprobs.view(-1, outputs.size(-1))[active_loss]
-    active_labels = labels.view(-1)[active_loss]
+    active_labels = masked_labels[active_loss]
     active_loss = loss_fct(active_lprobs, active_labels)
 
     # Compute loss for other tokens
     inactive_lprobs = lprobs.view(-1, outputs.size(-1))[inactive_loss]
-    inactive_labels = labels.view(-1)[inactive_loss]
+    inactive_labels = masked_labels[inactive_loss]
     inactive_loss = loss_fct(inactive_lprobs, inactive_labels)
 
     # Combine the losses, applying a weight to the specific tokens
     loss = focus_weight * active_loss + inactive_loss
     return loss
+
 
 
 # Modify the Trainer class to use the custom loss function
@@ -85,10 +91,11 @@ training_args = TrainingArguments(
     logging_dir="./logs",
 )
 
-# Prepare the data collator
-data_collator = DataCollatorForSeq2Seq(
+
+data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer,
-    model=model,
+    mlm=True,
+    mlm_probability=0.15,
 )
 
 # Train the model with the custom trainer
@@ -98,7 +105,7 @@ trainer = CustomTrainer(
     args=training_args,
     data_collator=data_collator,
     train_dataset=train_dataset,
-    eval_dataset=eval_dataset=eval_dataset,
+    eval_dataset=eval_dataset,
 )
 
 trainer.train()
