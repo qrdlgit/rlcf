@@ -47,6 +47,8 @@ def main(input_file):
 
         # Train the model
         train_model(model, dataset)
+        
+     model.save_pretrained(model_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Code Improvement Trainer")
