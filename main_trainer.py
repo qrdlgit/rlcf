@@ -10,6 +10,10 @@ from eval_rewards import (
     get_rewards_for_code_improvements
 )
 
+import os
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
+
 def main(input_file):
     # Read input data
     prompt_and_code_files = get_prompts_and_code_filenames(input_file)
@@ -46,9 +50,9 @@ def main(input_file):
         dataset = prepare_dataset([improvement_prompt], [generated_code_improvement], rewards)
 
         # Train the model
-        train_model(model, dataset)
+        train_model(model, tokenizer, dataset)
         
-     model.save_pretrained(model_path)
+    model.save_pretrained(model_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Code Improvement Trainer")
