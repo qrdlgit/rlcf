@@ -62,11 +62,19 @@ def create_dataset(file_path, tokenizer, block_size=128, separator="--"):
     encoded_examples = []
 
     for example in examples:
-        encoded_example = tokenizer.encode(example, add_special_tokens=True, max_length=block_size, truncation=True, padding="max_length")
+        encoded_example = tokenizer.encode_plus(
+            example,
+            add_special_tokens=True,
+            max_length=block_size,
+            truncation=True,
+            padding="max_length",
+            return_tensors="pt",
+        )
+        encoded_example["input_ids"] = encoded_example["input_ids"].squeeze(0)
+        encoded_example["attention_mask"] = encoded_example["attention_mask"].squeeze(0)
         encoded_examples.append(encoded_example)
 
-    dataset = torch.utils.data.TensorDataset(torch.tensor(encoded_examples, dtype=torch.long))
-    return dataset
+    return encoded_examples
 
 train_dataset = create_dataset("train.txt", tokenizer)
 eval_dataset = create_dataset("eval.txt", tokenizer)
@@ -91,6 +99,8 @@ data_collator = DataCollatorForSeq2Seq(
     model=model,
 )
 
+
+
 # Train the model with the custom trainer
 trainer = CustomTrainer(
     tokenizer=tokenizer,
@@ -98,9 +108,9 @@ trainer = CustomTrainer(
     args=training_args,
     data_collator=data_collator,
     train_dataset=train_dataset,
-    eval_dataset=eval_dataset=eval_dataset,
+    eval_dataset=eval_dataset,
+    tokenizer=tokenizer,
 )
-
 trainer.train()
 
 # Save the fine-tuned model
