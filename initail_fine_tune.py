@@ -59,7 +59,6 @@ class CustomTrainer(Trainer):
         loss = custom_loss(outputs.logits, labels, self.tokenizer)
         return (loss, outputs) if return_outputs else loss
 
-# Prepare the dataset
 def create_dataset(file_path, tokenizer, block_size=128, separator="--"):
     with open(file_path, "r") as f:
         content = f.read()
@@ -69,10 +68,9 @@ def create_dataset(file_path, tokenizer, block_size=128, separator="--"):
 
     for example in examples:
         encoded_example = tokenizer.encode(example, add_special_tokens=True, max_length=block_size, truncation=True, padding="max_length")
-        encoded_examples.append(encoded_example)
+        encoded_examples.append(torch.tensor(encoded_example, dtype=torch.long))
 
-    dataset = torch.utils.data.TensorDataset(torch.tensor(encoded_examples, dtype=torch.long))
-    return dataset
+    return encoded_examples
 
 train_dataset = create_dataset("train.txt", tokenizer)
 eval_dataset = create_dataset("eval.txt", tokenizer)
@@ -95,9 +93,6 @@ training_args = TrainingArguments(
 # Custom data collator
 class CustomDataCollatorForLanguageModeling(DataCollatorForLanguageModeling):
     def _torch_collate_batch(self, examples, tokenizer):
-        # Convert the examples to tensors
-        examples = [torch.tensor(e, dtype=torch.long) for e in examples]
-
         # Call the parent class method
         return super()._torch_collate_batch(examples, tokenizer)
     
