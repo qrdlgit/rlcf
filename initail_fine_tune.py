@@ -1,16 +1,16 @@
 import torch
-from transformers import CodeBertTokenizer, CodeBertForConditionalGeneration
-from transformers import TextDataset, DataCollatorForLanguageModeling
+from torch.nn import CrossEntropyLoss
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import TextDataset, DataCollatorForSeq2Seq
 from transformers import Trainer, TrainingArguments
 
 # Load the pre-trained model
 model_name = "microsoft/codebert-base"
-tokenizer = CodeBertTokenizer.from_pretrained(model_name)
-
-model = CodeBertForConditionalGeneration.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
 # Create a custom loss function
-def custom_loss(outputs, labels, tokenizer, loss_fct=CrossEntropyLoss()):
+def custom_loss(outputs, labels, tokenizer, loss_fct=CrossEntropyLoss(), focus_weight=5.0):
     find_code_token = tokenizer.encode("find code:", add_special_tokens=False)
     replace_code_token = tokenizer.encode("replace code:", add_special_tokens=False)
     mask = torch.zeros_like(labels)
@@ -24,20 +24,35 @@ def custom_loss(outputs, labels, tokenizer, loss_fct=CrossEntropyLoss()):
 
     lprobs = torch.nn.functional.log_softmax(outputs.view(-1, outputs.size(-1)), dim=-1)
     active_loss = mask.view(-1) == 1
+    inactive_loss = mask.view(-1) == 0
+
+    # Compute loss for the specific tokens
     active_lprobs = lprobs.view(-1, outputs.size(-1))[active_loss]
     active_labels = labels.view(-1)[active_loss]
-    loss = loss_fct(active_lprobs, active_labels)
+    active_loss = loss_fct(active_lprobs, active_labels)
+
+    # Compute loss for other tokens
+    inactive_lprobs = lprobs.view(-1, outputs.size(-1))[inactive_loss]
+    inactive_labels = labels.view(-1)[inactive_loss]
+    inactive_loss = loss_fct(inactive_lprobs, inactive_labels)
+
+    # Combine the losses, applying a weight to the specific tokens
+    loss = focus_weight * active_loss + inactive_loss
     return loss
-  
+
+
 # Modify the Trainer class to use the custom loss function
 class CustomTrainer(Trainer):
+    def __init__(self, tokenizer, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tokenizer = tokenizer
+
     def compute_loss(self, model, inputs, return_outputs=False):
         labels = inputs.pop("labels")
-        mask = (labels != -100).float()
         outputs = model(**inputs)
-        loss = custom_loss(outputs.logits, labels, mask)
+        loss = custom_loss(outputs.logits, labels, self.tokenizer)
         return (loss, outputs) if return_outputs else loss
-      
+
 # Prepare the dataset
 def create_dataset(file_path, tokenizer, block_size=128, separator="--"):
     with open(file_path, "r") as f:
@@ -47,7 +62,7 @@ def create_dataset(file_path, tokenizer, block_size=128, separator="--"):
     encoded_examples = []
 
     for example in examples:
-        encoded_example = tokenizer.encode(example, add_special_tokens=True, max_length=block_size, truncation=True)
+        encoded_example = tokenizer.encode(example, add_special_tokens=True, max_length=block_size, truncation=True, padding="max_length")
         encoded_examples.append(encoded_example)
 
     dataset = torch.utils.data.TensorDataset(torch.tensor(encoded_examples, dtype=torch.long))
@@ -71,17 +86,19 @@ training_args = TrainingArguments(
 )
 
 # Prepare the data collator
-data_collator = DataCollatorForLanguageModeling(
-    tokenizer=tokenizer, mlm=True, mlm_probability=0.15
+data_collator = DataCollatorForSeq2Seq(
+    tokenizer=tokenizer,
+    model=model,
 )
 
 # Train the model with the custom trainer
 trainer = CustomTrainer(
+    tokenizer=tokenizer,
     model=model,
     args=training_args,
     data_collator=data_collator,
     train_dataset=train_dataset,
-    eval_dataset=eval_dataset,
+    eval_dataset=eval_dataset=eval_dataset,
 )
 
 trainer.train()
