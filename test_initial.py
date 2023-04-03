@@ -2,15 +2,16 @@ import sys
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-def generate_text(prompt_filename, model, tokenizer):
+def generate_text(prompt_filename, model, tokenizer, max_new_tokens=50):
     with open(prompt_filename, "r") as f:
         prompt = f.read().strip()
 
     input_ids = tokenizer.encode(prompt, return_tensors="pt")
-    output_ids = model.generate(input_ids)
+    output_ids = model.generate(input_ids, max_length=len(input_ids[0]) + max_new_tokens, num_return_sequences=1)
     generated_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
     return generated_text
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
