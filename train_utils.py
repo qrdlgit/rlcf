@@ -83,7 +83,7 @@ def prepare_dataset(prompts, responses, rewards):
 
 
 
-def train_model(model, dataset, epochs=1, batch_size=8, learning_rate=5e-5, weight_decay=0.01, warmup_steps=0):
+def train_model(model, tokenizer, dataset, epochs=1, batch_size=8, learning_rate=5e-5, weight_decay=0.01, warmup_steps=0):
     # Create a DataLoader for the dataset
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
@@ -114,5 +114,3 @@ def train_model(model, dataset, epochs=1, batch_size=8, learning_rate=5e-5, weig
             optimizer.step()
             scheduler.step()
 
-        # Save the model after each epoch
-        model.save_pretrained(f"codebert_finetuned_epoch_{epoch + 1}")
