@@ -72,9 +72,11 @@ def create_dataset(file_path, tokenizer, block_size=128, separator="--"):
         )
         encoded_example["input_ids"] = encoded_example["input_ids"].squeeze(0)
         encoded_example["attention_mask"] = encoded_example["attention_mask"].squeeze(0)
+        encoded_example["labels"] = encoded_example["input_ids"].clone()  # Set labels equal to input_ids
         encoded_examples.append(encoded_example)
 
     return encoded_examples
+
 
 train_dataset = create_dataset("train.txt", tokenizer)
 eval_dataset = create_dataset("eval.txt", tokenizer)
