@@ -92,7 +92,18 @@ training_args = TrainingArguments(
 )
 
 
-data_collator = DataCollatorForLanguageModeling(
+# Custom data collator
+class CustomDataCollatorForLanguageModeling(DataCollatorForLanguageModeling):
+    def _torch_collate_batch(self, examples, tokenizer):
+        # Convert the examples to tensors
+        examples = [torch.tensor(e, dtype=torch.long) for e in examples]
+
+        # Call the parent class method
+        return super()._torch_collate_batch(examples, tokenizer)
+    
+
+
+data_collator = CustomDataCollatorForLanguageModeling(
     tokenizer=tokenizer,
     mlm=True,
     mlm_probability=0.15,
