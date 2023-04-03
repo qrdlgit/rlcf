@@ -56,7 +56,7 @@ class CustomTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
         labels = inputs.pop("labels")
         outputs = model(**inputs)
-        loss = custom_loss(outputs.logits, labels, self.tokenizer)
+        loss = custom_mlm_loss(outputs.logits, labels, self.tokenizer)
         return (loss, outputs) if return_outputs else loss
 
 def create_dataset(file_path, tokenizer, block_size=128, separator="--"):
