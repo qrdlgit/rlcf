@@ -5,7 +5,7 @@ from transformers import TextDataset, DataCollatorForSeq2Seq
 from transformers import Trainer, TrainingArguments
 
 # Load the pre-trained model
-model_name = "microsoft/codebert-base"
+model_name = "Salesforce/codet5-base"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
