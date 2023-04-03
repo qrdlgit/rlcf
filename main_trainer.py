@@ -3,16 +3,30 @@ from training_utils import (
     get_prompts_and_code_filenames,
     generate_code_improvements,
     update_generated_code_files,
-    evaluate_code_improvements,
-    calculate_rewards,
     prepare_dataset,
     train_model,
+)
+from eval_rewards import (
+    get_rewards_for_code_improvements
 )
 
 def main(input_file):
     # Read input data
     prompt_and_code_files = get_prompts_and_code_filenames(input_file)
     code_files = [x[1] for x in prompt_and_code_files]
+    
+    # Define the model path and check if the fine-tuned model exists
+    model_path = "codebert_finetuned"
+    if os.path.exists(model_path):
+        # Load the fine-tuned model and tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
+    else:
+        # Load the pre-trained CodeBERT model and tokenizer
+        model_name = "microsoft/CodeBERTa-small-v1"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    
     
     # RLCF iterative process
     num_iterations = 5
@@ -32,7 +46,7 @@ def main(input_file):
         dataset = prepare_dataset([improvement_prompt], [generated_code_improvement], rewards)
 
         # Train the model
-        train_model(dataset)
+        train_model(model, dataset)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Code Improvement Trainer")
